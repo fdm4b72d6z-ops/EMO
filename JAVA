@@ -1,0 +1,67 @@
+
+async function findUsers() {
+  const query = document
+    .getElementById("searchUsers")
+    .value.trim();
+
+  const results = document.getElementById("userResults");
+  results.replaceChildren();
+
+  if (query.length < 2) {
+    results.textContent = "Enter at least 2 characters.";
+    return;
+  }
+
+  const { data, error } = await db
+    .from("profiles")
+    .select("id, display_name")
+    .ilike("display_name", "%" + query + "%")
+    .neq("id", currentUser.id)
+    .limit(20);
+
+  if (error) {
+    results.textContent = error.message;
+    return;
+  }
+
+  if (!data.length) {
+    results.textContent = "No users found.";
+    return;
+  }
+
+  data.forEach(user => {
+    const button = document.createElement("button");
+    button.textContent = "Chat with " + user.display_name;
+
+    button.onclick = () => startPrivateChat(user.id, user.display_name);
+
+    results.appendChild(button);
+  });
+}
+
+async function startPrivateChat(userId, userName) {
+  const { data, error } = await db.rpc(
+    "create_emo_conversation",
+    {
+      p_member_ids: [userId],
+      p_is_group: false,
+      p_name: null
+    }
+  );
+
+  if (error) {
+    alert(error.message);
+    return;
+  }
+
+  chatId = data;
+
+  document.getElementById("chatTitle").textContent =
+    "Chat with " + userName;
+
+  await loadMessages();
+  subscribeMessages();
+
+  document.getElementById("status2").textContent =
+    "Private conversation connected";
+}
